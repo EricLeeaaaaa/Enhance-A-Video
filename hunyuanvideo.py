@@ -9,7 +9,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
     "--model_path", 
     type=str, 
-    default="tencent/HunyuanVideo",
+    default="FastVideo/hunyuan_diffusers",
     help="Path to the local model or Hugging Face model ID"
 )
 args = parser.parse_args()
@@ -38,8 +38,8 @@ prompt = "A focused baseball player stands in the dugout, gripping his bat with 
 
 output = pipe(
     prompt=prompt,
-    height=544,
-    width=960,
+    height=720,
+    width=1280,
     num_frames=129,
     num_inference_steps=50,
     generator=torch.Generator().manual_seed(42),
