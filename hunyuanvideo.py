@@ -77,11 +77,17 @@ def main():
         default="A focused baseball player stands in the dugout, gripping his bat with determination, wearing a classic white jersey with blue pinstripes and a matching cap. The sunlight casts dramatic shadows across his face, highlighting his intense gaze as he prepares for the game. His hands, wrapped in black batting gloves, firmly hold the bat, showcasing his readiness and anticipation. The background reveals the bustling stadium, with blurred fans and vibrant green field, creating an atmosphere of excitement and competition. As he adjusts his stance, the player's concentration and passion for the sport are palpable, embodying the spirit of baseball.",
         help="Prompt for video generation",
     )
+    parser.add_argument(
+        "--model_path", 
+        type=str, 
+        default="tencent/HunyuanVideo",
+        help="Path to the local model or Hugging Face model ID"
+    )
     args = parser.parse_args()
 
     # 创建并设置 pipeline
-    model_id = "tencent/HunyuanVideo"
-    pipe = create_pipeline(model_id)
+    model_path = args.model_path
+    pipe = create_pipeline(model_path)
     pipe = setup_pipeline(pipe)
     
     # 加载 LoRA（如果指定）
