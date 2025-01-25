@@ -1,17 +1,23 @@
 import argparse
+import os
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 import torch
-from diffusers import HunyuanVideoPipeline, HunyuanVideoTransformer3DModel
+from diffusers import BitsAndBytesConfig as DiffusersBitsAndBytesConfig, HunyuanVideoTransformer3DModel, HunyuanVideoPipeline
 from diffusers.utils import export_to_video
 
 from enhance_a_video import enable_enhance, inject_enhance_for_hunyuanvideo, set_enhance_weight
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
+torch.backends.cudnn.benchmark = True  # 为固定大小输入优化 CUDA 内核
+torch.cuda.empty_cache()  # 清理 GPU 缓存
+
+quant_config = DiffusersBitsAndBytesConfig(load_in_8bit= True )
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--model_path", 
-    type=str, 
+    "--model_path",
+    type=str,
     default="FastVideo/hunyuan_diffusers",
     help="Path to the local model or Hugging Face model ID"
 )
@@ -21,10 +27,11 @@ model_id = args.model_path
 
 # 加载 transformer
 transformer = HunyuanVideoTransformer3DModel.from_pretrained(
-    model_id, 
-    subfolder="transformer", 
-    torch_dtype=torch.bfloat16, 
-    revision="refs/pr/18"
+    model_id,
+    subfolder="transformer",
+    torch_dtype=torch.bfloat16,
+    revision="refs/pr/18",
+    quantization_config=quant_config,
 )
 
 # 创建 pipeline
@@ -32,12 +39,14 @@ pipe = HunyuanVideoPipeline.from_pretrained(
     model_id,
     transformer=transformer,
     revision="refs/pr/18",
-    torch_dtype=torch.bfloat16,
-    use_memory_efficient_attention=True  # 启用内存效率注意力机制
+    torch_dtype=torch.float16,
 )
 pipe.to("cuda")
-# pipe.enable_sequential_cpu_offload()
+pipe.batch_size = 1
 pipe.vae.enable_tiling()
+# pipe.enable_model_cpu_offload()
+pipe.enable_vae_slicing()
+pipe.enable_attention_slicing(slice_size="max")
 
 # ============ Enhance-A-Video ============
 # comment the following if you want to use the original model
@@ -47,14 +56,7 @@ pipe.vae.enable_tiling()
 # enable_enhance()
 # ============ Enhance-A-Video ============
 
-# xformers 优化
-pipe.enable_xformers_memory_efficient_attention()
-
-# torch.compile() 优化
-pipe.transformer = torch.compile(pipe.transformer)
-pipe.vae = torch.compile(pipe.vae)
-
-prompt = "A focused baseball player stands in the dugout, gripping his bat with determination, wearing a classic white jersey with blue pinstripes and a matching cap. The sunlight casts dramatic shadows across his face, highlighting his intense gaze as he prepares for the game. His hands, wrapped in black batting gloves, firmly hold the bat, showcasing his readiness and anticipation. The background reveals the bustling stadium, with blurred fans and vibrant green field, creating an atmosphere of excitement and competition. As he adjusts his stance, the player's concentration and passion for the sport are palpable, embodying the spirit of baseball."
+prompt = "A determined baseball player in a white and blue jersey grips his bat in the dugout. Sunlight casts dramatic shadows across his focused face. The blurred stadium background pulses with competitive energy."
 
 output = pipe(
     prompt=prompt,
