@@ -40,6 +40,7 @@ pipe = HunyuanVideoPipeline.from_pretrained(
     transformer=transformer,
     revision="refs/pr/18",
     torch_dtype=torch.float16,
+    device_map="balanced",
 )
 pipe.to("cuda")
 pipe.batch_size = 1
